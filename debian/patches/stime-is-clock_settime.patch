@@ -1,0 +1,46 @@
+Description: stime is obsolete, use clock_settime instead
+Author: Steve Langasek <steve.langasek@ubuntu.com>
+Last-Update: 2020-03-30
+
+Index: busybox-1.30.1/util-linux/rdate.c
+===================================================================
+--- busybox-1.30.1.orig/util-linux/rdate.c
++++ busybox-1.30.1/util-linux/rdate.c
+@@ -79,11 +79,13 @@
+ int rdate_main(int argc UNUSED_PARAM, char **argv)
+ {
+ 	time_t remote_time;
++	struct timespec remote_timespec = { 0, 0 };
+ 	unsigned flags;
+ 
+ 	flags = getopt32(argv, "^" "sp" "\0" "-1");
+ 
+ 	remote_time = askremotedate(argv[optind]);
++	remote_timespec.tv_sec = remote_time;
+ 
+ 	/* Manpages of various Unixes are confusing. What happens is:
+ 	 * (no opts) set and print time
+@@ -96,7 +98,7 @@
+ 		if (time(NULL) == remote_time)
+ 			bb_error_msg("current time matches remote time");
+ 		else
+-			if (stime(&remote_time) < 0)
++			if (clock_settime(CLOCK_REALTIME, &remote_timespec) < 0)
+ 				bb_perror_msg_and_die("can't set time of day");
+ 	}
+ 
+Index: busybox-1.30.1/coreutils/date.c
+===================================================================
+--- busybox-1.30.1.orig/coreutils/date.c
++++ busybox-1.30.1/coreutils/date.c
+@@ -303,7 +303,9 @@
+ 		ts.tv_sec = validate_tm_time(date_str, &tm_time);
+ 
+ 		/* if setting time, set it */
+-		if ((opt & OPT_SET) && stime(&ts.tv_sec) < 0) {
++		if ((opt & OPT_SET)
++		    && clock_settime(CLOCK_REALTIME, &ts.tv_sec) < 0)
++		{
+ 			bb_perror_msg("can't set date");
+ 		}
+ 	}
